@@ -124,17 +124,25 @@ export function createFly() {
   ));
 
   // Big rounded translucent wings.
+  // Anchor them directly into the thorax so they read as attached,
+  // while keeping the chunky cartoon silhouette of the old 2D fly.
   function wing(side) {
     const pivot = new THREE.Group();
-    pivot.position.set(0.02, 0.25, side * 0.18);
+    pivot.position.set(0.02, 0.17, side * 0.10);
 
     const mesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.48, 12, 8),
       wingMat
     );
-    mesh.scale.set(1.25, 0.58, 0.10);
-    mesh.position.set(0.12, 0.34, side * 0.12);
-    mesh.rotation.z = side * 0.08;
+
+    // Flatten into a soft oval and overlap the thorax at the base.
+    mesh.scale.set(1.18, 0.34, 0.16);
+    mesh.position.set(0.16, 0.10, side * 0.03);
+
+    // Slight V-shape so both wings remain visible from the front.
+    mesh.rotation.z = side * 0.28;
+    mesh.rotation.y = side * 0.12;
+
     mesh.castShadow = false;
     pivot.add(mesh);
     root.add(pivot);
