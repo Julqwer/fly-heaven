@@ -1,0 +1,65 @@
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: #110f18;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+canvas {
+  display: block;
+}
+
+.hud {
+  position: fixed;
+  top: 24px;
+  left: 28px;
+  color: rgba(255,255,255,.94);
+  pointer-events: none;
+  text-shadow: 0 2px 18px rgba(0,0,0,.35);
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: .2em;
+  opacity: .62;
+}
+
+.title {
+  margin-top: 7px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 34px;
+  letter-spacing: -.02em;
+}
+
+.status {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: .75;
+}
+
+.status span {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 5px;
+  border-radius: 999px;
+  background: #88ff9b;
+  box-shadow: 0 0 13px rgba(136,255,155,.9);
+}
+
+.hint {
+  position: fixed;
+  right: 24px;
+  bottom: 20px;
+  color: rgba(255,255,255,.42);
+  font-size: 11px;
+  letter-spacing: .08em;
+  pointer-events: none;
+}
