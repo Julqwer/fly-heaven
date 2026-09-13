@@ -200,8 +200,42 @@ fly.group.scale.setScalar(1.18);
 fly.group.rotation.y = -0.18;
 scene.add(fly.group);
 
-// S = local smoke animation test.
-// Later this same trigger gets MN9 events.
+// ------------------------------------------------------------
+// Live neural bridge
+// ------------------------------------------------------------
+//
+// run_heaven.py writes real MN9-driven SMOKE events to
+// /tmp/fly_heaven.log. bridge.mjs tails that log and exposes only
+// NEW runtime events over Server-Sent Events.
+//
+// Neural event -> browser event -> this exact 3D animation.
+const bridge = new EventSource('http://127.0.0.1:8787/events');
+
+bridge.addEventListener('smoke', (event) => {
+  const data = JSON.parse(event.data);
+  console.log(
+    `MN9 → SMOKE #${data.count} | song ${data.songSeconds.toFixed(2)}s | ${data.phase}`
+  );
+  fly.triggerSmoke();
+});
+
+bridge.addEventListener('reward', () => {
+  console.log('PAM07 reward');
+});
+
+bridge.addEventListener('training_complete', () => {
+  console.log('training complete — weights frozen');
+});
+
+bridge.addEventListener('open', () => {
+  console.log('FLY HEAVEN neural bridge connected');
+});
+
+bridge.addEventListener('error', () => {
+  console.log('waiting for FLY HEAVEN neural bridge...');
+});
+
+// Keep S as an explicit visual-only test key.
 window.addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 's') {
     fly.triggerSmoke();
