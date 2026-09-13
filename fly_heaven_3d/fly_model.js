@@ -181,11 +181,6 @@ export function createFly() {
   // Six stick-like legs, deliberately simple like the sprite.
   const legs = [
     [
-      new THREE.Vector3(-0.20, -0.20, -0.18),
-      new THREE.Vector3(-0.38, -0.46, -0.34),
-      new THREE.Vector3(-0.55, -0.58, -0.46),
-    ],
-    [
       new THREE.Vector3(-0.20, -0.20, 0.18),
       new THREE.Vector3(-0.38, -0.46, 0.34),
       new THREE.Vector3(-0.55, -0.58, 0.46),
@@ -214,22 +209,35 @@ export function createFly() {
   legs.forEach((points) => root.add(limb(points, legMat)));
 
   // Smoking foreleg + cigarette.
+  // This foreleg replaces one of the six normal front legs.
+  // The cigarette is parented to the paw/grip, so it can never
+  // float independently from the leg.
   const smokingArm = new THREE.Group();
   smokingArm.position.set(-0.20, -0.18, -0.18);
+
+  const smokingHandLocal = new THREE.Vector3(-0.68, -0.12, 0.08);
+
   smokingArm.add(limb([
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(-0.16, 0.14, -0.08),
-    new THREE.Vector3(-0.38, 0.15, -0.09),
+    new THREE.Vector3(-0.30, -0.22, -0.08),
+    smokingHandLocal,
   ], legMat));
+
   root.add(smokingArm);
 
+  // Paw/grip at the end of the front leg.
+  const cigaretteGrip = new THREE.Group();
+  cigaretteGrip.position.copy(smokingHandLocal);
+  smokingArm.add(cigaretteGrip);
+
   const cigarette = new THREE.Group();
-  // Put the cigarette at the proboscis/mouth, not through the eye.
-  // Local +Y points toward the filter; with -90° around Z the filter
-  // sits near the mouth and the ember points outward.
-  cigarette.position.set(-1.02, -0.16, -0.03);
+
+  // The paw grips the cigarette around its middle.
+  // When the foreleg lifts, the filter lands at the proboscis and
+  // the glowing end points outward in front of the fly.
+  cigarette.position.set(-0.08, -0.02, 0.08);
   cigarette.rotation.z = -Math.PI / 2;
-  root.add(cigarette);
+  cigaretteGrip.add(cigarette);
 
   const paper = new THREE.Mesh(
     new THREE.CylinderGeometry(0.028, 0.028, 0.42, 8),
@@ -248,6 +256,7 @@ export function createFly() {
     emissive: 0xff2f00,
     emissiveIntensity: 2.0,
   });
+
   const ember = new THREE.Mesh(
     new THREE.CylinderGeometry(0.029, 0.029, 0.035, 8),
     emberMat
@@ -267,7 +276,7 @@ export function createFly() {
         depthWrite: false,
       })
     );
-    puff.position.set(-0.95 - i * 0.035, 0.12 + i * 0.10, -0.19);
+    puff.position.set(0, 0, 0);
     root.add(puff);
     puffs.push(puff);
   }
@@ -311,28 +320,31 @@ export function createFly() {
         1
       );
 
-      smokingArm.rotation.z = 0.62 * bring;
-      smokingArm.rotation.y = -0.15 * bring;
-      cigarette.position.x = THREE.MathUtils.lerp(-1.02, -0.87, bring);
-      cigarette.position.y = THREE.MathUtils.lerp(-0.16, -0.15, bring);
-      cigarette.position.z = THREE.MathUtils.lerp(-0.03, 0.0, bring);
+      // Lift the entire foreleg. Because the cigarette is a child of
+      // the paw, the paw and cigarette move as one rigid action.
+      smokingArm.rotation.z = -0.25 * bring;
+      smokingArm.rotation.y = -0.04 * bring;
       emberMat.emissiveIntensity = 2.0 + bring * 5.0;
 
       puffs.forEach((puff, i) => {
         const start = 0.38 + i * 0.07;
         const a = THREE.MathUtils.clamp((local - start) / 0.72, 0, 1);
         puff.material.opacity = Math.sin(a * Math.PI) * 0.38;
-        puff.position.y = 0.12 + i * 0.10 + a * 0.28;
-        puff.position.x = -0.95 - i * 0.035 - a * 0.06;
-        puff.position.z = -0.19 + Math.sin(t * 1.7 + i) * 0.035;
+        const emberWorld = new THREE.Vector3();
+        ember.getWorldPosition(emberWorld);
+        const emberLocal = root.worldToLocal(emberWorld.clone());
+
+        puff.position.x =
+          emberLocal.x - a * (0.04 + i * 0.008);
+        puff.position.y =
+          emberLocal.y + 0.05 + i * 0.08 + a * 0.28;
+        puff.position.z =
+          emberLocal.z + Math.sin(t * 1.7 + i) * 0.035;
         puff.scale.setScalar(1 + a * 0.9);
       });
     } else {
       smokingArm.rotation.z *= 0.84;
       smokingArm.rotation.y *= 0.84;
-      cigarette.position.x = THREE.MathUtils.lerp(cigarette.position.x, -1.02, 0.12);
-      cigarette.position.y = THREE.MathUtils.lerp(cigarette.position.y, -0.16, 0.12);
-      cigarette.position.z = THREE.MathUtils.lerp(cigarette.position.z, -0.03, 0.12);
       emberMat.emissiveIntensity = THREE.MathUtils.lerp(
         emberMat.emissiveIntensity,
         2.0,
@@ -340,7 +352,6 @@ export function createFly() {
       );
       puffs.forEach((puff, i) => {
         puff.material.opacity *= 0.80;
-        puff.position.set(-0.95 - i * 0.035, 0.12 + i * 0.10, -0.19);
         puff.scale.setScalar(1);
       });
     }
