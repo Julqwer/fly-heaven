@@ -190,8 +190,11 @@ export function createFly() {
   root.add(smokingArm);
 
   const cigarette = new THREE.Group();
-  cigarette.position.set(-0.88, -0.01, -0.19);
-  cigarette.rotation.z = Math.PI / 2;
+  // Put the cigarette at the proboscis/mouth, not through the eye.
+  // Local +Y points toward the filter; with -90° around Z the filter
+  // sits near the mouth and the ember points outward.
+  cigarette.position.set(-1.02, -0.16, -0.03);
+  cigarette.rotation.z = -Math.PI / 2;
   root.add(cigarette);
 
   const paper = new THREE.Mesh(
@@ -275,8 +278,9 @@ export function createFly() {
 
       smokingArm.rotation.z = 0.62 * bring;
       smokingArm.rotation.y = -0.15 * bring;
-      cigarette.position.x = THREE.MathUtils.lerp(-0.88, -0.70, bring);
-      cigarette.position.y = THREE.MathUtils.lerp(-0.01, -0.08, bring);
+      cigarette.position.x = THREE.MathUtils.lerp(-1.02, -0.87, bring);
+      cigarette.position.y = THREE.MathUtils.lerp(-0.16, -0.15, bring);
+      cigarette.position.z = THREE.MathUtils.lerp(-0.03, 0.0, bring);
       emberMat.emissiveIntensity = 2.0 + bring * 5.0;
 
       puffs.forEach((puff, i) => {
@@ -291,8 +295,9 @@ export function createFly() {
     } else {
       smokingArm.rotation.z *= 0.84;
       smokingArm.rotation.y *= 0.84;
-      cigarette.position.x = THREE.MathUtils.lerp(cigarette.position.x, -0.88, 0.12);
-      cigarette.position.y = THREE.MathUtils.lerp(cigarette.position.y, -0.01, 0.12);
+      cigarette.position.x = THREE.MathUtils.lerp(cigarette.position.x, -1.02, 0.12);
+      cigarette.position.y = THREE.MathUtils.lerp(cigarette.position.y, -0.16, 0.12);
+      cigarette.position.z = THREE.MathUtils.lerp(cigarette.position.z, -0.03, 0.12);
       emberMat.emissiveIntensity = THREE.MathUtils.lerp(
         emberMat.emissiveIntensity,
         2.0,
