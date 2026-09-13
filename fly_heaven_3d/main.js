@@ -5,92 +5,69 @@ import { createFly } from './fly_model.js';
 const app = document.querySelector('#app');
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1b1422);
-scene.fog = new THREE.FogExp2(0x2a1722, 0.018);
+scene.background = new THREE.Color(0xe18f73);
 
 const camera = new THREE.PerspectiveCamera(
-  48,
+  47,
   window.innerWidth / window.innerHeight,
   0.1,
-  200
+  100
 );
-camera.position.set(10, 7, 13);
+camera.position.set(0, 3.05, 8.2);
+camera.lookAt(0, 1.85, -2.2);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+// Render deliberately a little chunky so the 3D world keeps the
+// original DOOMFLY / pixel-cartoon character.
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setPixelRatio(1);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.BasicShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMapping = THREE.NoToneMapping;
 app.appendChild(renderer.domElement);
+
+function sizeRenderer() {
+  const scale = 0.72;
+  const w = Math.max(480, Math.floor(window.innerWidth * scale));
+  const h = Math.max(270, Math.floor(window.innerHeight * scale));
+  renderer.setSize(w, h, false);
+}
+sizeRenderer();
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.target.set(1.25, 2.55, -1.0);
-controls.minDistance = 3.0;
-controls.maxDistance = 22;
-controls.maxPolarAngle = Math.PI * 0.49;
+controls.target.set(0, 1.75, -2.1);
+controls.minDistance = 5.8;
+controls.maxDistance = 12;
+controls.maxPolarAngle = Math.PI * 0.48;
 
 // ------------------------------------------------------------
-// Lighting
+// Flat cartoon lighting
 // ------------------------------------------------------------
 
-scene.add(new THREE.HemisphereLight(0xffd6b2, 0x241c31, 1.5));
+scene.add(new THREE.HemisphereLight(0xffc7a8, 0x49372d, 2.25));
 
-const sunset = new THREE.DirectionalLight(0xff9366, 4.0);
-sunset.position.set(-7, 8, -8);
-sunset.castShadow = true;
-sunset.shadow.mapSize.set(2048, 2048);
-sunset.shadow.camera.left = -14;
-sunset.shadow.camera.right = 14;
-sunset.shadow.camera.top = 14;
-sunset.shadow.camera.bottom = -14;
-scene.add(sunset);
+const sunLight = new THREE.DirectionalLight(0xffad73, 2.8);
+sunLight.position.set(5, 8, 3);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(1024, 1024);
+sunLight.shadow.camera.left = -8;
+sunLight.shadow.camera.right = 8;
+sunLight.shadow.camera.top = 8;
+sunLight.shadow.camera.bottom = -8;
+scene.add(sunLight);
 
-const fill = new THREE.PointLight(0xe2b8ff, 20, 24, 2);
-fill.position.set(6, 5, 7);
-scene.add(fill);
-
-const flyKey = new THREE.PointLight(0xffc49f, 8, 5, 2);
-flyKey.position.set(2.4, 4.0, 1.2);
-scene.add(flyKey);
-
-// ------------------------------------------------------------
-// Materials
-// ------------------------------------------------------------
-
-const floorMat = new THREE.MeshStandardMaterial({
-  color: 0x4e332f,
-  roughness: 0.78,
-  metalness: 0.03,
-});
-
-const wallMat = new THREE.MeshStandardMaterial({
-  color: 0x8e5f5f,
-  roughness: 0.88,
-});
-
-const darkWallMat = new THREE.MeshStandardMaterial({
-  color: 0x4f3d4f,
-  roughness: 0.95,
-});
-
-const trimMat = new THREE.MeshStandardMaterial({
-  color: 0x2d252d,
-  roughness: 0.7,
-});
-
-// ------------------------------------------------------------
-// Room
-// ------------------------------------------------------------
+function mat(color) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.92,
+    metalness: 0,
+    flatShading: true,
+  });
+}
 
 function box(w, h, d, material, x, y, z) {
-  const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(w, h, d),
-    material
-  );
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -98,179 +75,151 @@ function box(w, h, d, material, x, y, z) {
   return mesh;
 }
 
-box(18, 0.28, 14, floorMat, 0, 0, 0);
-box(18, 8.2, 0.28, wallMat, 0, 4, -7);
-box(0.28, 8.2, 14, darkWallMat, -9, 4, 0);
+// ------------------------------------------------------------
+// The same simple room as the old FLY HEAVEN, now actual 3D.
+// ------------------------------------------------------------
 
-for (let z = -6.6; z < 7; z += 0.72) {
-  box(17.7, 0.012, 0.025, trimMat, 0, 0.15, z);
+const floorMat = mat(0x865b32);
+const seamMat = mat(0x3f2c22);
+const wallMat = mat(0xd77c70);
+const sideWallMat = mat(0xc96f67);
+const frameMat = mat(0x36383a);
+
+box(12.5, 0.22, 12.5, floorMat, 0, -0.08, 0);
+box(12.5, 7.0, 0.24, wallMat, 0, 3.35, -6.0);
+box(0.24, 7.0, 12.5, sideWallMat, -6.15, 3.35, 0);
+box(0.24, 7.0, 12.5, sideWallMat, 6.15, 3.35, 0);
+
+// Floor planks like the screenshot.
+for (let z = -5.7; z <= 5.8; z += 0.72) {
+  box(12.1, 0.018, 0.035, seamMat, 0, 0.045, z);
+}
+
+// A few long seams give stronger perspective.
+for (let x = -5.5; x <= 5.5; x += 1.5) {
+  box(0.025, 0.019, 11.8, seamMat, x, 0.047, 0);
 }
 
 // ------------------------------------------------------------
-// Window + sunset
+// Window: two panes, striped sunset, mountains, sun.
+// Every element is 3D geometry sitting just in front of the wall.
 // ------------------------------------------------------------
 
-const windowGroup = new THREE.Group();
-windowGroup.position.set(-3.6, 4.1, -6.82);
-scene.add(windowGroup);
+const windowRoot = new THREE.Group();
+windowRoot.position.set(0, 3.75, -5.84);
+scene.add(windowRoot);
 
-const frameMat = new THREE.MeshStandardMaterial({
-  color: 0x241d25,
-  roughness: 0.6,
-});
+const windowW = 8.35;
+const windowH = 4.1;
 
-const glassMat = new THREE.MeshBasicMaterial({
-  color: 0xfd9a7d,
-  transparent: true,
-  opacity: 0.38,
-  side: THREE.DoubleSide,
-});
-
-const glass = new THREE.Mesh(
-  new THREE.PlaneGeometry(6.4, 4.2),
-  glassMat
-);
-glass.position.z = 0.05;
-windowGroup.add(glass);
-
-const frameParts = [
-  [6.7, 0.18, 0.15, 0, 2.18, 0],
-  [6.7, 0.18, 0.15, 0, -2.18, 0],
-  [0.18, 4.55, 0.15, -3.34, 0, 0],
-  [0.18, 4.55, 0.15, 3.34, 0, 0],
-  [0.12, 4.25, 0.12, 0, 0, 0.06],
+// Sunset horizontal bands.
+const bandColors = [
+  0x515254,
+  0x5d5c5a,
+  0x876f62,
+  0xb95559,
+  0xc85d61,
+  0xd26d6c,
+  0xde8577,
+  0xe99a70,
 ];
 
-for (const [w, h, d, x, y, z] of frameParts) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
-  m.position.set(x, y, z);
-  windowGroup.add(m);
+for (let i = 0; i < bandColors.length; i++) {
+  const h = windowH / bandColors.length;
+  const band = new THREE.Mesh(
+    new THREE.PlaneGeometry(windowW - 0.28, h + 0.025),
+    new THREE.MeshBasicMaterial({ color: bandColors[i] })
+  );
+  band.position.set(0, windowH / 2 - h / 2 - i * h, 0);
+  windowRoot.add(band);
 }
 
-const sunDisc = new THREE.Mesh(
-  new THREE.CircleGeometry(1.15, 64),
-  new THREE.MeshBasicMaterial({ color: 0xffd4a3 })
+// Mountain silhouette.
+function mountainShape(points, xOffset = 0) {
+  const shape = new THREE.Shape();
+  shape.moveTo(points[0][0] + xOffset, points[0][1]);
+  for (let i = 1; i < points.length; i++) {
+    shape.lineTo(points[i][0] + xOffset, points[i][1]);
+  }
+  const mesh = new THREE.Mesh(
+    new THREE.ShapeGeometry(shape),
+    new THREE.MeshBasicMaterial({ color: 0x3b3d3f, side: THREE.DoubleSide })
+  );
+  mesh.position.set(0, -1.85, 0.03);
+  windowRoot.add(mesh);
+}
+
+mountainShape([
+  [-4.0, 0],
+  [-4.0, 0.62],
+  [-3.18, 1.05],
+  [-2.20, 0.42],
+  [-1.20, 1.34],
+  [-0.02, 0.22],
+  [0.3, 0],
+]);
+
+mountainShape([
+  [-0.3, 0],
+  [0.0, 0.42],
+  [1.25, 0.95],
+  [2.08, 0.32],
+  [3.02, 0.82],
+  [4.0, 0.42],
+  [4.0, 0],
+]);
+
+const sun = new THREE.Mesh(
+  new THREE.CircleGeometry(0.58, 24),
+  new THREE.MeshBasicMaterial({ color: 0xffc596 })
 );
-sunDisc.position.set(-5.4, 4.8, -7.3);
-scene.add(sunDisc);
+sun.position.set(2.15, 0.28, 0.05);
+windowRoot.add(sun);
 
-const horizon = new THREE.Mesh(
-  new THREE.PlaneGeometry(17, 8),
-  new THREE.ShaderMaterial({
-    depthWrite: false,
-    side: THREE.DoubleSide,
-    uniforms: {
-      cTop: { value: new THREE.Color(0x74456f) },
-      cMid: { value: new THREE.Color(0xe46d72) },
-      cBottom: { value: new THREE.Color(0xffc58b) },
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 cTop;
-      uniform vec3 cMid;
-      uniform vec3 cBottom;
-      varying vec2 vUv;
-      void main() {
-        vec3 col;
-        if (vUv.y > 0.45) {
-          float t = (vUv.y - 0.45) / 0.55;
-          col = mix(cMid, cTop, t);
-        } else {
-          float t = vUv.y / 0.45;
-          col = mix(cBottom, cMid, t);
-        }
-        gl_FragColor = vec4(col, 1.0);
-      }
-    `,
-  })
-);
-horizon.position.set(-4.0, 4.0, -7.42);
-scene.add(horizon);
+// Thick frame, deliberately blocky.
+function framePart(w, h, x, y) {
+  const f = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.18), frameMat);
+  f.position.set(x, y, 0.15);
+  f.castShadow = true;
+  windowRoot.add(f);
+}
+
+framePart(windowW + 0.35, 0.25, 0, windowH / 2 + 0.12);
+framePart(windowW + 0.35, 0.25, 0, -windowH / 2 - 0.12);
+framePart(0.25, windowH + 0.50, -windowW / 2 - 0.12, 0);
+framePart(0.25, windowH + 0.50, windowW / 2 + 0.12, 0);
+framePart(0.20, windowH + 0.20, 0, 0);
 
 // ------------------------------------------------------------
-// Furniture
-// ------------------------------------------------------------
-
-const tableMat = new THREE.MeshStandardMaterial({
-  color: 0x56332c,
-  roughness: 0.64,
-});
-
-box(5.2, 0.28, 2.4, tableMat, 1.6, 2.0, -1.1);
-box(0.28, 2.0, 0.28, tableMat, -0.5, 1.0, -2.0);
-box(0.28, 2.0, 0.28, tableMat, 3.7, 1.0, -2.0);
-box(0.28, 2.0, 0.28, tableMat, -0.5, 1.0, -0.2);
-box(0.28, 2.0, 0.28, tableMat, 3.7, 1.0, -0.2);
-
-// ------------------------------------------------------------
-// TRUE 3D fly
+// Cartoon 3D fly, in the same lower-center composition.
 // ------------------------------------------------------------
 
 const fly = createFly();
-fly.group.position.set(1.35, 2.63, -1.02);
-fly.group.scale.setScalar(0.92);
+fly.group.position.set(0.05, 0.78, 1.05);
+fly.group.scale.setScalar(1.18);
+fly.group.rotation.y = -0.18;
 scene.add(fly.group);
 
-// Press S only as a local animation preview.
-// Later this exact trigger will be wired to MN9 runtime events.
+// S = local smoke animation test.
+// Later this same trigger gets MN9 events.
 window.addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 's') {
     fly.triggerSmoke();
   }
 });
 
-// dust motes
-const particleCount = 220;
-const positions = new Float32Array(particleCount * 3);
-for (let i = 0; i < particleCount; i++) {
-  positions[i * 3 + 0] = THREE.MathUtils.randFloatSpread(16);
-  positions[i * 3 + 1] = THREE.MathUtils.randFloat(0.2, 7.4);
-  positions[i * 3 + 2] = THREE.MathUtils.randFloat(-6.2, 6.2);
-}
-
-const dustGeo = new THREE.BufferGeometry();
-dustGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-const dust = new THREE.Points(
-  dustGeo,
-  new THREE.PointsMaterial({
-    color: 0xffd9bc,
-    size: 0.025,
-    transparent: true,
-    opacity: 0.35,
-    depthWrite: false,
-  })
-);
-scene.add(dust);
-
-// ------------------------------------------------------------
-// Render loop
-// ------------------------------------------------------------
-
 const clock = new THREE.Clock();
 
 function animate() {
   requestAnimationFrame(animate);
-
-  const t = clock.getElapsedTime();
   controls.update();
-  fly.update(t);
-
-  dust.rotation.y = t * 0.006;
-
+  fly.update(clock.getElapsedTime());
   renderer.render(scene, camera);
 }
-
 animate();
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  sizeRenderer();
 });
