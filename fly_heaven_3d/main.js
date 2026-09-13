@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createFly } from './fly_model.js';
 
 const app = document.querySelector('#app');
 
@@ -27,8 +28,8 @@ app.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.target.set(0, 2.7, 0);
-controls.minDistance = 5.5;
+controls.target.set(1.25, 2.55, -1.0);
+controls.minDistance = 3.0;
 controls.maxDistance = 22;
 controls.maxPolarAngle = Math.PI * 0.49;
 
@@ -51,6 +52,10 @@ scene.add(sunset);
 const fill = new THREE.PointLight(0xe2b8ff, 20, 24, 2);
 fill.position.set(6, 5, 7);
 scene.add(fill);
+
+const flyKey = new THREE.PointLight(0xffc49f, 8, 5, 2);
+flyKey.position.set(2.4, 4.0, 1.2);
+scene.add(flyKey);
 
 // ------------------------------------------------------------
 // Materials
@@ -97,7 +102,6 @@ box(18, 0.28, 14, floorMat, 0, 0, 0);
 box(18, 8.2, 0.28, wallMat, 0, 4, -7);
 box(0.28, 8.2, 14, darkWallMat, -9, 4, 0);
 
-// subtle floor planks
 for (let z = -6.6; z < 7; z += 0.72) {
   box(17.7, 0.012, 0.025, trimMat, 0, 0.15, z);
 }
@@ -143,7 +147,6 @@ for (const [w, h, d, x, y, z] of frameParts) {
   windowGroup.add(m);
 }
 
-// sun disc outside
 const sunDisc = new THREE.Mesh(
   new THREE.CircleGeometry(1.15, 64),
   new THREE.MeshBasicMaterial({ color: 0xffd4a3 })
@@ -151,7 +154,6 @@ const sunDisc = new THREE.Mesh(
 sunDisc.position.set(-5.4, 4.8, -7.3);
 scene.add(sunDisc);
 
-// glowing horizon planes
 const horizon = new THREE.Mesh(
   new THREE.PlaneGeometry(17, 8),
   new THREE.ShaderMaterial({
@@ -192,7 +194,7 @@ horizon.position.set(-4.0, 4.0, -7.42);
 scene.add(horizon);
 
 // ------------------------------------------------------------
-// Furniture / stage for the fly
+// Furniture
 // ------------------------------------------------------------
 
 const tableMat = new THREE.MeshStandardMaterial({
@@ -206,27 +208,22 @@ box(0.28, 2.0, 0.28, tableMat, 3.7, 1.0, -2.0);
 box(0.28, 2.0, 0.28, tableMat, -0.5, 1.0, -0.2);
 box(0.28, 2.0, 0.28, tableMat, 3.7, 1.0, -0.2);
 
-// temporary marker where the true 3D fly will sit
-const marker = new THREE.Group();
-marker.position.set(1.4, 2.35, -1.05);
-scene.add(marker);
+// ------------------------------------------------------------
+// TRUE 3D fly
+// ------------------------------------------------------------
 
-const ring = new THREE.Mesh(
-  new THREE.TorusGeometry(0.72, 0.025, 16, 80),
-  new THREE.MeshBasicMaterial({
-    color: 0xffa88b,
-    transparent: true,
-    opacity: 0.65,
-  })
-);
-ring.rotation.x = Math.PI / 2;
-marker.add(ring);
+const fly = createFly();
+fly.group.position.set(1.35, 2.63, -1.02);
+fly.group.scale.setScalar(0.92);
+scene.add(fly.group);
 
-const dot = new THREE.Mesh(
-  new THREE.SphereGeometry(0.055, 18, 18),
-  new THREE.MeshBasicMaterial({ color: 0xffffff })
-);
-marker.add(dot);
+// Press S only as a local animation preview.
+// Later this exact trigger will be wired to MN9 runtime events.
+window.addEventListener('keydown', (event) => {
+  if (event.key.toLowerCase() === 's') {
+    fly.triggerSmoke();
+  }
+});
 
 // dust motes
 const particleCount = 220;
@@ -263,9 +260,7 @@ function animate() {
 
   const t = clock.getElapsedTime();
   controls.update();
-
-  marker.rotation.y = Math.sin(t * 0.55) * 0.12;
-  ring.scale.setScalar(1 + Math.sin(t * 1.7) * 0.035);
+  fly.update(t);
 
   dust.rotation.y = t * 0.006;
 
