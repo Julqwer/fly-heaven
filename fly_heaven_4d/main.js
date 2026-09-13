@@ -76,15 +76,21 @@ for (let i = 0; i < tesseractVertices4.length; i++) {
 
 const tesseractGeometry = new THREE.BufferGeometry();
 const tessPositions = new Float32Array(tesseractEdges.length * 2 * 3);
+const tessColors = new Float32Array(tesseractEdges.length * 2 * 3);
+
 tesseractGeometry.setAttribute(
   'position',
   new THREE.BufferAttribute(tessPositions, 3)
 );
+tesseractGeometry.setAttribute(
+  'color',
+  new THREE.BufferAttribute(tessColors, 3)
+);
 
 const tesseractMaterial = new THREE.LineBasicMaterial({
-  color: 0xb893ff,
+  vertexColors: true,
   transparent: true,
-  opacity: 0.58,
+  opacity: 0.70,
 });
 
 const tesseractLines = new THREE.LineSegments(
@@ -95,16 +101,22 @@ scene.add(tesseractLines);
 
 const tessPointGeometry = new THREE.BufferGeometry();
 const tessPointPositions = new Float32Array(tesseractVertices4.length * 3);
+const tessPointColors = new Float32Array(tesseractVertices4.length * 3);
+
 tessPointGeometry.setAttribute(
   'position',
   new THREE.BufferAttribute(tessPointPositions, 3)
+);
+tessPointGeometry.setAttribute(
+  'color',
+  new THREE.BufferAttribute(tessPointColors, 3)
 );
 
 const tessPoints = new THREE.Points(
   tessPointGeometry,
   new THREE.PointsMaterial({
-    color: 0xf2d9ff,
-    size: 0.070,
+    vertexColors: true,
+    size: 0.082,
     sizeAttenuation: true,
   })
 );
@@ -126,13 +138,51 @@ const flyPalette = {
   leg: 0x1b1b24,
 };
 
+// ------------------------------------------------------------
+// Make the invisible fourth coordinate visible as color.
+//
+// negative W -> cyan
+// W ~= 0    -> pale violet
+// positive W -> hot magenta
+//
+// We blend that signal with each anatomical base color so the fly
+// remains readable while its hidden 4D position becomes visible.
+// ------------------------------------------------------------
+
+const wNegative = new THREE.Color(0x35d9ff);
+const wZero = new THREE.Color(0xd9ccff);
+const wPositive = new THREE.Color(0xff4fa7);
+
+function colorFromW(w, baseHex, out = new THREE.Color()) {
+  // tanh keeps extreme perspective excursions from blowing out the scale.
+  const n = Math.tanh(w / 1.15); // roughly -1 .. +1
+  const wColor = new THREE.Color();
+
+  if (n < 0) {
+    wColor.lerpColors(wZero, wNegative, -n);
+  } else {
+    wColor.lerpColors(wZero, wPositive, n);
+  }
+
+  const base = new THREE.Color(baseHex);
+
+  // Keep some anatomy-specific color, but make W unmistakable.
+  out.copy(base).lerp(wColor, 0.68);
+  return out;
+}
+
 const flyViews = flyParts.map((part) => {
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(part.points.length * 3);
+  const colors = new Float32Array(part.points.length * 3);
 
   geometry.setAttribute(
     'position',
     new THREE.BufferAttribute(positions, 3)
+  );
+  geometry.setAttribute(
+    'color',
+    new THREE.BufferAttribute(colors, 3)
   );
 
   if (part.type === 'surface') {
@@ -141,7 +191,8 @@ const flyViews = flyParts.map((part) => {
     const transparent = part.kind === 'wing';
 
     const material = new THREE.MeshStandardMaterial({
-      color: flyPalette[part.kind],
+      color: 0xffffff,
+      vertexColors: true,
       roughness: 0.72,
       metalness: 0.02,
       side: THREE.DoubleSide,
@@ -178,14 +229,15 @@ const flyViews = flyParts.map((part) => {
       part,
       geometry,
       positions,
+      colors,
       objects: [mesh, wire],
     };
   }
 
   const lineMaterial = new THREE.LineBasicMaterial({
-    color: flyPalette[part.kind],
+    vertexColors: true,
     transparent: true,
-    opacity: 0.95,
+    opacity: 0.98,
   });
 
   const line = new THREE.Line(geometry, lineMaterial);
@@ -195,6 +247,7 @@ const flyViews = flyParts.map((part) => {
     part,
     geometry,
     positions,
+    colors,
     objects: [line],
   };
 });
@@ -236,7 +289,7 @@ function angles4(t) {
 }
 
 function updateTesseract(angles) {
-  const projected = tesseractVertices4.map((p) => {
+  const rotated = tesseractVertices4.map((p) => {
     const scaled = {
       x: p.x * 2.35,
       y: p.y * 2.35,
@@ -244,33 +297,55 @@ function updateTesseract(angles) {
       w: p.w * 2.35,
     };
 
-    return project4To3(
-      rotate4(scaled, angles),
-      7.0
-    );
+    return rotate4(scaled, angles);
   });
 
+  const projected = rotated.map((q) => project4To3(q, 7.0));
+
+  const tmpColor = new THREE.Color();
   let k = 0;
 
   for (const [a, b] of tesseractEdges) {
-    tessPositions[k++] = projected[a].x;
-    tessPositions[k++] = projected[a].y;
-    tessPositions[k++] = projected[a].z;
+    tessPositions[k] = projected[a].x;
+    tessPositions[k + 1] = projected[a].y;
+    tessPositions[k + 2] = projected[a].z;
 
-    tessPositions[k++] = projected[b].x;
-    tessPositions[k++] = projected[b].y;
-    tessPositions[k++] = projected[b].z;
+    colorFromW(rotated[a].w, 0xb893ff, tmpColor);
+    tessColors[k] = tmpColor.r;
+    tessColors[k + 1] = tmpColor.g;
+    tessColors[k + 2] = tmpColor.b;
+    k += 3;
+
+    tessPositions[k] = projected[b].x;
+    tessPositions[k + 1] = projected[b].y;
+    tessPositions[k + 2] = projected[b].z;
+
+    colorFromW(rotated[b].w, 0xb893ff, tmpColor);
+    tessColors[k] = tmpColor.r;
+    tessColors[k + 1] = tmpColor.g;
+    tessColors[k + 2] = tmpColor.b;
+    k += 3;
   }
 
   tesseractGeometry.attributes.position.needsUpdate = true;
+  tesseractGeometry.attributes.color.needsUpdate = true;
 
   for (let i = 0; i < projected.length; i++) {
-    tessPointPositions[i * 3 + 0] = projected[i].x;
-    tessPointPositions[i * 3 + 1] = projected[i].y;
-    tessPointPositions[i * 3 + 2] = projected[i].z;
+    const p3 = projected[i];
+    const q4 = rotated[i];
+
+    tessPointPositions[i * 3 + 0] = p3.x;
+    tessPointPositions[i * 3 + 1] = p3.y;
+    tessPointPositions[i * 3 + 2] = p3.z;
+
+    colorFromW(q4.w, 0xf2d9ff, tmpColor);
+    tessPointColors[i * 3 + 0] = tmpColor.r;
+    tessPointColors[i * 3 + 1] = tmpColor.g;
+    tessPointColors[i * 3 + 2] = tmpColor.b;
   }
 
   tessPointGeometry.attributes.position.needsUpdate = true;
+  tessPointGeometry.attributes.color.needsUpdate = true;
 }
 
 function updateFly(angles) {
@@ -283,6 +358,8 @@ function updateFly(angles) {
     zw: angles.zw + 0.09,
   };
 
+  const tmpColor = new THREE.Color();
+
   for (const view of flyViews) {
     for (let i = 0; i < view.part.points.length; i++) {
       const q = rotate4(view.part.points[i], flyAngles);
@@ -291,9 +368,20 @@ function updateFly(angles) {
       view.positions[i * 3 + 0] = p.x;
       view.positions[i * 3 + 1] = p.y;
       view.positions[i * 3 + 2] = p.z;
+
+      colorFromW(
+        q.w,
+        flyPalette[view.part.kind],
+        tmpColor
+      );
+
+      view.colors[i * 3 + 0] = tmpColor.r;
+      view.colors[i * 3 + 1] = tmpColor.g;
+      view.colors[i * 3 + 2] = tmpColor.b;
     }
 
     view.geometry.attributes.position.needsUpdate = true;
+    view.geometry.attributes.color.needsUpdate = true;
 
     if (view.part.type === 'surface') {
       view.geometry.computeVertexNormals();
