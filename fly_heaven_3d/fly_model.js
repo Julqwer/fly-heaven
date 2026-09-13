@@ -132,9 +132,9 @@ export function createFly() {
       new THREE.SphereGeometry(0.48, 12, 8),
       wingMat
     );
-    mesh.scale.set(1.45, 0.11, 0.72);
-    mesh.position.set(0.15, 0.18, side * 0.22);
-    mesh.rotation.y = side * 0.15;
+    mesh.scale.set(1.25, 0.58, 0.10);
+    mesh.position.set(0.12, 0.34, side * 0.12);
+    mesh.rotation.z = side * 0.08;
     mesh.castShadow = false;
     pivot.add(mesh);
     root.add(pivot);
@@ -245,6 +245,7 @@ export function createFly() {
   const state = {
     smokeStart: -10,
     smokeUntil: -10,
+    baseY: null,
   };
 
   function triggerSmoke(duration = 1.8) {
@@ -254,8 +255,10 @@ export function createFly() {
   }
 
   function update(t) {
-    // idle bounce, deliberately tiny.
-    root.position.y = Math.sin(t * 2.0) * 0.010;
+    // Keep the world placement from main.js. The old version accidentally
+    // overwrote root.position.y every frame and sank the fly into the floor.
+    if (state.baseY === null) state.baseY = root.position.y;
+    root.position.y = state.baseY + Math.sin(t * 2.0) * 0.010;
     root.rotation.z = Math.sin(t * 1.2) * 0.012;
 
     leftWing.rotation.z = -0.03 + Math.sin(t * 4.8) * 0.018;
