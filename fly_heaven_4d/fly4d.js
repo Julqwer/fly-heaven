@@ -1,34 +1,98 @@
-import { v4, add4, scale4 } from './math4d.js';
+import { v4 } from './math4d.js';
 
-function sampleHyperEllipsoid(center, radii, count, seedPhase = 0) {
-  const pts = [];
+function shell4D(center, radii, latSegments = 12, lonSegments = 20, wWarp = 0.35, phase = 0) {
+  const points = [];
+  const indices = [];
 
-  // Deterministic quasi-random sampling on S^3.
-  for (let i = 0; i < count; i++) {
-    const a = (i * 2.399963229728653 + seedPhase) % (Math.PI * 2);
-    const b = ((i + 0.5) / count) * Math.PI;
-    const c = (i * 1.61803398875 + seedPhase * 0.7) % (Math.PI * 2);
+  for (let iy = 0; iy <= latSegments; iy++) {
+    const theta = (iy / latSegments) * Math.PI;
+    const st = Math.sin(theta);
+    const ct = Math.cos(theta);
 
-    const s = Math.sin(b);
-    const q = v4(
-      Math.cos(a) * s,
-      Math.sin(a) * s,
-      Math.cos(b) * Math.cos(c),
-      Math.cos(b) * Math.sin(c)
-    );
+    for (let ix = 0; ix <= lonSegments; ix++) {
+      const phi = (ix / lonSegments) * Math.PI * 2;
+      const cp = Math.cos(phi);
+      const sp = Math.sin(phi);
 
-    pts.push(v4(
-      center.x + q.x * radii.x,
-      center.y + q.y * radii.y,
-      center.z + q.z * radii.z,
-      center.w + q.w * radii.w
-    ));
+      // A closed 2D shell embedded in R^4.
+      // x/y/z make the familiar body surface, while w bends that
+      // surface through the hidden fourth coordinate.
+      const sx = st * cp;
+      const sy = ct;
+      const sz = st * sp;
+      const sw =
+        st *
+        (0.62 * Math.sin(2 * phi + phase) +
+         0.38 * Math.sin(3 * theta - phase));
+
+      points.push(v4(
+        center.x + radii.x * sx,
+        center.y + radii.y * sy,
+        center.z + radii.z * sz,
+        center.w + radii.w * wWarp * sw
+      ));
+    }
   }
 
-  return pts;
+  const row = lonSegments + 1;
+
+  for (let iy = 0; iy < latSegments; iy++) {
+    for (let ix = 0; ix < lonSegments; ix++) {
+      const a = iy * row + ix;
+      const b = a + row;
+      const c = b + 1;
+      const d = a + 1;
+
+      indices.push(a, b, d);
+      indices.push(b, c, d);
+    }
+  }
+
+  return { points, indices };
 }
 
-function polyline4(points, samplesPerSegment = 4) {
+function wing4D(center, side, rows = 8, cols = 18) {
+  const points = [];
+  const indices = [];
+
+  for (let iy = 0; iy <= rows; iy++) {
+    const v = iy / rows;
+    const span = Math.sin(v * Math.PI);
+
+    for (let ix = 0; ix <= cols; ix++) {
+      const u = ix / cols;
+      const x = (u - 0.10) * 1.55;
+      const y = (v - 0.5) * 0.56 * span;
+      const z = side * (0.18 + u * 0.30 + 0.06 * Math.sin(v * Math.PI));
+      const w = side * (0.18 + 0.48 * Math.sin(u * Math.PI) * span);
+
+      points.push(v4(
+        center.x + x,
+        center.y + y,
+        center.z + z,
+        center.w + w
+      ));
+    }
+  }
+
+  const row = cols + 1;
+
+  for (let iy = 0; iy < rows; iy++) {
+    for (let ix = 0; ix < cols; ix++) {
+      const a = iy * row + ix;
+      const b = a + row;
+      const c = b + 1;
+      const d = a + 1;
+
+      indices.push(a, b, d);
+      indices.push(b, c, d);
+    }
+  }
+
+  return { points, indices };
+}
+
+function polyline4(points, samplesPerSegment = 5) {
   const out = [];
 
   for (let i = 0; i < points.length - 1; i++) {
@@ -50,77 +114,115 @@ function polyline4(points, samplesPerSegment = 4) {
   return out;
 }
 
-export function createFly4DPoints() {
+function surfacePart(name, kind, shell) {
+  return {
+    name,
+    kind,
+    type: 'surface',
+    points: shell.points,
+    indices: shell.indices,
+  };
+}
+
+function linePart(name, kind, points) {
+  return {
+    name,
+    kind,
+    type: 'line',
+    points,
+  };
+}
+
+export function createFly4DParts() {
   const parts = [];
 
-  // The body is not a 3D mesh with an extra number attached.
-  // Each volume below is sampled in four dimensions (x,y,z,w).
-  parts.push({
-    name: 'thorax',
-    kind: 'body',
-    points: sampleHyperEllipsoid(
-      v4(0.0, 0.0, 0.0, 0.0),
-      v4(0.72, 0.55, 0.52, 0.42),
-      120,
-      0.1
-    ),
-  });
+  // Chunky cartoon body, but every surface vertex has x/y/z/w.
+  parts.push(surfacePart(
+    'thorax',
+    'body',
+    shell4D(
+      v4(0.0, 0.0, 0.0, 0.00),
+      v4(0.72, 0.55, 0.52, 0.52),
+      13,
+      22,
+      0.95,
+      0.2
+    )
+  ));
 
-  parts.push({
-    name: 'head',
-    kind: 'head',
-    points: sampleHyperEllipsoid(
-      v4(-0.88, 0.05, 0.0, -0.12),
-      v4(0.46, 0.42, 0.42, 0.34),
-      80,
-      0.7
-    ),
-  });
+  parts.push(surfacePart(
+    'head',
+    'head',
+    shell4D(
+      v4(-0.90, 0.06, 0.0, -0.12),
+      v4(0.48, 0.42, 0.42, 0.42),
+      12,
+      20,
+      0.90,
+      1.1
+    )
+  ));
 
-  parts.push({
-    name: 'abdomen',
-    kind: 'abdomen',
-    points: sampleHyperEllipsoid(
-      v4(1.05, -0.03, 0.0, 0.18),
-      v4(0.92, 0.52, 0.52, 0.48),
-      145,
-      1.3
-    ),
-  });
+  parts.push(surfacePart(
+    'abdomen',
+    'abdomen',
+    shell4D(
+      v4(1.06, -0.03, 0.0, 0.18),
+      v4(0.96, 0.55, 0.54, 0.58),
+      14,
+      24,
+      0.95,
+      2.0
+    )
+  ));
 
+  // Tiny cute 4D butt cheeks at the rear.
   for (const side of [-1, 1]) {
-    parts.push({
-      name: side < 0 ? 'eye-left' : 'eye-right',
-      kind: 'eye',
-      points: sampleHyperEllipsoid(
-        v4(-1.11, 0.09, side * 0.31, -0.16),
-        v4(0.22, 0.25, 0.16, 0.13),
-        38,
-        side < 0 ? 2.0 : 2.7
-      ),
-    });
+    parts.push(surfacePart(
+      side < 0 ? 'butt-left' : 'butt-right',
+      'butt',
+      shell4D(
+        v4(1.74, -0.10, side * 0.16, 0.22 + side * 0.08),
+        v4(0.28, 0.27, 0.22, 0.26),
+        9,
+        14,
+        0.85,
+        side < 0 ? 0.7 : 2.4
+      )
+    ));
   }
 
-  // Wings have noticeable extension into W, so 4D rotation visibly
-  // changes their apparent topology after projection.
   for (const side of [-1, 1]) {
-    parts.push({
-      name: side < 0 ? 'wing-left' : 'wing-right',
-      kind: 'wing',
-      points: sampleHyperEllipsoid(
-        v4(0.34, 0.63, side * 0.42, side * 0.32),
-        v4(1.0, 0.18, 0.34, 0.56),
-        92,
-        side < 0 ? 3.1 : 3.8
-      ),
-    });
+    parts.push(surfacePart(
+      side < 0 ? 'eye-left' : 'eye-right',
+      'eye',
+      shell4D(
+        v4(-1.16, 0.10, side * 0.31, -0.17),
+        v4(0.24, 0.26, 0.17, 0.18),
+        9,
+        14,
+        0.85,
+        side < 0 ? 0.4 : 2.7
+      )
+    ));
+  }
+
+  for (const side of [-1, 1]) {
+    parts.push(surfacePart(
+      side < 0 ? 'wing-left' : 'wing-right',
+      'wing',
+      wing4D(
+        v4(-0.03, 0.46, 0.0, 0.0),
+        side
+      )
+    ));
   }
 
   const legRoots = [
-    [-0.34, -0.32, -0.32, -0.05],
-    [-0.34, -0.32,  0.32,  0.05],
-    [ 0.05, -0.36, -0.38, -0.08],
-    [ 0.05, -0.36,  0.38,  0.08],
+    [-0.36, -0.30, -0.30, -0.05],
+    [-0.36, -0.30,  0.30,  0.05],
+    [ 0.05, -0.36, -0.36, -0.08],
+    [ 0.05, -0.36,  0.36,  0.08],
     [ 0.52, -0.30, -0.30, -0.12],
     [ 0.52, -0.30,  0.30,  0.12],
   ];
@@ -128,28 +230,27 @@ export function createFly4DPoints() {
   legRoots.forEach((r, i) => {
     const side = Math.sign(r[2]) || 1;
 
-    parts.push({
-      name: `leg-${i + 1}`,
-      kind: 'leg',
-      points: polyline4([
+    parts.push(linePart(
+      `leg-${i + 1}`,
+      'leg',
+      polyline4([
         v4(...r),
-        v4(r[0] + 0.18, -0.74, r[2] + side * 0.28, r[3] + side * 0.18),
-        v4(r[0] + 0.46, -1.00, r[2] + side * 0.50, r[3] + side * 0.36),
-      ], 7),
-    });
+        v4(r[0] + 0.12, -0.72, r[2] + side * 0.28, r[3] + side * 0.20),
+        v4(r[0] + 0.40, -1.02, r[2] + side * 0.54, r[3] + side * 0.38),
+      ], 6)
+    ));
   });
 
-  // Antennae.
   for (const side of [-1, 1]) {
-    parts.push({
-      name: side < 0 ? 'antenna-left' : 'antenna-right',
-      kind: 'leg',
-      points: polyline4([
+    parts.push(linePart(
+      side < 0 ? 'antenna-left' : 'antenna-right',
+      'leg',
+      polyline4([
         v4(-1.16, 0.25, side * 0.11, -0.18),
-        v4(-1.43, 0.58, side * 0.18, -0.04),
-        v4(-1.62, 0.72, side * 0.23, 0.18),
-      ], 6),
-    });
+        v4(-1.43, 0.58, side * 0.18, -0.02),
+        v4(-1.62, 0.72, side * 0.23, 0.20),
+      ], 6)
+    ));
   }
 
   return parts;
