@@ -1,10 +1,19 @@
 import * as THREE from 'three';
 
-function cylinderBetween(a, b, radius, material) {
+function flatMaterial(color, extra = {}) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.88,
+    metalness: 0,
+    flatShading: true,
+    ...extra,
+  });
+}
+
+function segment(a, b, radius, material, sides = 6) {
   const dir = new THREE.Vector3().subVectors(b, a);
-  const len = dir.length();
   const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(radius, radius * 0.86, len, 10),
+    new THREE.CylinderGeometry(radius, radius, dir.length(), sides),
     material
   );
   mesh.position.copy(a).add(b).multiplyScalar(0.5);
@@ -16,304 +25,279 @@ function cylinderBetween(a, b, radius, material) {
   return mesh;
 }
 
-function makeLeg(points, material) {
-  const g = new THREE.Group();
+function limb(points, material, radius = 0.022) {
+  const group = new THREE.Group();
   for (let i = 0; i < points.length - 1; i++) {
-    g.add(cylinderBetween(points[i], points[i + 1], 0.025, material));
+    group.add(segment(points[i], points[i + 1], radius, material));
   }
-  return g;
+  return group;
 }
 
 export function createFly() {
   const root = new THREE.Group();
-  root.rotation.y = -0.55;
 
-  const shell = new THREE.MeshStandardMaterial({
-    color: 0x292d28,
-    roughness: 0.42,
-    metalness: 0.08,
+  // Cartoon palette matching the original 2D sprite.
+  const bodyMat = flatMaterial(0x313236);
+  const abdomenMat = flatMaterial(0x3c3d33);
+  const stripeMat = flatMaterial(0x6b6540);
+  const eyeMat = flatMaterial(0xd92739, {
+    emissive: 0x350006,
+    emissiveIntensity: 0.3,
   });
-
-  const abdomenMat = new THREE.MeshStandardMaterial({
-    color: 0x2d3427,
-    roughness: 0.5,
-  });
-
-  const stripeMat = new THREE.MeshStandardMaterial({
-    color: 0x6b7040,
-    roughness: 0.48,
-  });
-
-  const eyeMat = new THREE.MeshStandardMaterial({
-    color: 0xa8202f,
-    roughness: 0.36,
-    emissive: 0x2b0208,
-    emissiveIntensity: 0.25,
-  });
-
-  const wingMat = new THREE.MeshPhysicalMaterial({
-    color: 0xe8f2f0,
+  const legMat = flatMaterial(0x1c2022);
+  const wingMat = new THREE.MeshStandardMaterial({
+    color: 0xd8d5cf,
+    roughness: 0.95,
     transparent: true,
-    opacity: 0.34,
-    roughness: 0.12,
-    transmission: 0.18,
+    opacity: 0.48,
     side: THREE.DoubleSide,
     depthWrite: false,
+    flatShading: true,
   });
 
-  const legMat = new THREE.MeshStandardMaterial({
-    color: 0x171a17,
-    roughness: 0.58,
-  });
-
-  // Coordinate convention:
-  // +X = face/front, -X = abdomen.
-  const thorax = new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 24), shell);
-  thorax.scale.set(1.08, 0.92, 0.88);
+  // Body: intentionally chunky and cute, not anatomically photorealistic.
+  const thorax = new THREE.Mesh(
+    new THREE.SphereGeometry(0.38, 12, 8),
+    bodyMat
+  );
+  thorax.scale.set(1.05, 0.95, 0.95);
   thorax.castShadow = true;
   root.add(thorax);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.23, 32, 24), shell);
-  head.position.set(0.48, 0.01, 0);
-  head.scale.set(0.95, 0.9, 0.98);
+  const abdomen = new THREE.Mesh(
+    new THREE.SphereGeometry(0.43, 12, 8),
+    abdomenMat
+  );
+  abdomen.position.set(0.58, -0.02, 0);
+  abdomen.scale.set(1.25, 0.88, 0.88);
+  abdomen.castShadow = true;
+  root.add(abdomen);
+
+  // Wide olive bands like the old fly.
+  for (const x of [0.38, 0.62, 0.83]) {
+    const band = new THREE.Mesh(
+      new THREE.TorusGeometry(0.305, 0.038, 6, 18),
+      stripeMat
+    );
+    band.position.set(x, -0.02, 0);
+    band.rotation.y = Math.PI / 2;
+    band.scale.set(1, 0.86, 0.86);
+    root.add(band);
+  }
+
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.28, 12, 8),
+    bodyMat
+  );
+  head.position.set(-0.47, 0.03, 0);
+  head.scale.set(0.95, 0.92, 0.98);
   head.castShadow = true;
   root.add(head);
 
-  for (const z of [-0.17, 0.17]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.13, 26, 18), eyeMat);
-    eye.position.set(0.59, 0.045, z);
-    eye.scale.set(0.72, 1.02, 0.92);
+  // Comically large red eyes, the signature of the 2D version.
+  for (const z of [-0.16, 0.16]) {
+    const eye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.15, 10, 7),
+      eyeMat
+    );
+    eye.position.set(-0.60, 0.055, z);
+    eye.scale.set(0.95, 1.08, 0.92);
     eye.castShadow = true;
     root.add(eye);
   }
 
-  const abdomen = new THREE.Mesh(new THREE.SphereGeometry(0.42, 34, 24), abdomenMat);
-  abdomen.position.set(-0.53, -0.01, 0);
-  abdomen.scale.set(1.35, 0.78, 0.78);
-  abdomen.castShadow = true;
-  root.add(abdomen);
-
-  // Abdomen bands.
-  for (const x of [-0.32, -0.52, -0.72]) {
-    const band = new THREE.Mesh(
-      new THREE.TorusGeometry(0.255, 0.028, 12, 42),
-      stripeMat
-    );
-    band.position.set(x, -0.01, 0);
-    band.rotation.y = Math.PI / 2;
-    band.scale.set(1, 0.82, 0.82);
-    root.add(band);
-  }
-
   // Antennae.
-  for (const z of [-0.10, 0.10]) {
-    root.add(makeLeg([
-      new THREE.Vector3(0.63, 0.12, z),
-      new THREE.Vector3(0.82, 0.25, z * 1.4),
-      new THREE.Vector3(0.97, 0.31, z * 1.65),
-    ], legMat));
+  for (const z of [-0.095, 0.095]) {
+    root.add(limb([
+      new THREE.Vector3(-0.63, 0.16, z),
+      new THREE.Vector3(-0.78, 0.34, z * 1.45),
+      new THREE.Vector3(-0.88, 0.40, z * 1.6),
+    ], legMat, 0.014));
   }
 
-  // Proboscis.
-  const proboscis = cylinderBetween(
-    new THREE.Vector3(0.66, -0.10, 0),
-    new THREE.Vector3(0.88, -0.18, 0),
-    0.035,
+  // Short proboscis.
+  root.add(segment(
+    new THREE.Vector3(-0.66, -0.10, 0),
+    new THREE.Vector3(-0.82, -0.16, 0),
+    0.032,
     legMat
-  );
-  root.add(proboscis);
+  ));
 
-  // Wings are true geometry, not sprites.
-  const wingGeo = new THREE.ShapeGeometry((() => {
-    const s = new THREE.Shape();
-    s.moveTo(0, 0);
-    s.bezierCurveTo(0.35, 0.06, 0.82, 0.12, 1.16, 0.05);
-    s.bezierCurveTo(1.32, -0.02, 1.08, -0.27, 0.68, -0.32);
-    s.bezierCurveTo(0.34, -0.35, 0.08, -0.18, 0, 0);
-    return s;
-  })());
+  // Big rounded translucent wings.
+  function wing(side) {
+    const pivot = new THREE.Group();
+    pivot.position.set(0.02, 0.25, side * 0.18);
 
-  const leftWingPivot = new THREE.Group();
-  leftWingPivot.position.set(-0.08, 0.24, -0.16);
-  leftWingPivot.rotation.set(-0.35, 0.05, -0.18);
-  root.add(leftWingPivot);
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.48, 12, 8),
+      wingMat
+    );
+    mesh.scale.set(1.45, 0.11, 0.72);
+    mesh.position.set(0.15, 0.18, side * 0.22);
+    mesh.rotation.y = side * 0.15;
+    mesh.castShadow = false;
+    pivot.add(mesh);
+    root.add(pivot);
+    return pivot;
+  }
 
-  const leftWing = new THREE.Mesh(wingGeo, wingMat);
-  leftWing.rotation.x = Math.PI / 2;
-  leftWing.scale.set(0.95, 0.95, 0.95);
-  leftWingPivot.add(leftWing);
+  const leftWing = wing(-1);
+  const rightWing = wing(1);
 
-  const rightWingPivot = new THREE.Group();
-  rightWingPivot.position.set(-0.08, 0.24, 0.16);
-  rightWingPivot.rotation.set(0.35, -0.05, 0.18);
-  root.add(rightWingPivot);
-
-  const rightWing = new THREE.Mesh(wingGeo, wingMat);
-  rightWing.rotation.x = -Math.PI / 2;
-  rightWing.scale.set(0.95, 0.95, 0.95);
-  rightWingPivot.add(rightWing);
-
-  // Six articulated legs.
-  const legSets = [
-    // front
+  // Six stick-like legs, deliberately simple like the sprite.
+  const legs = [
     [
-      new THREE.Vector3(0.22, -0.18, -0.20),
-      new THREE.Vector3(0.48, -0.40, -0.34),
-      new THREE.Vector3(0.76, -0.55, -0.39),
+      new THREE.Vector3(-0.20, -0.20, -0.18),
+      new THREE.Vector3(-0.38, -0.46, -0.34),
+      new THREE.Vector3(-0.55, -0.58, -0.46),
     ],
     [
-      new THREE.Vector3(0.22, -0.18, 0.20),
-      new THREE.Vector3(0.48, -0.40, 0.34),
-      new THREE.Vector3(0.76, -0.55, 0.39),
-    ],
-    // middle
-    [
-      new THREE.Vector3(-0.08, -0.20, -0.23),
-      new THREE.Vector3(-0.02, -0.47, -0.48),
-      new THREE.Vector3(0.16, -0.58, -0.68),
+      new THREE.Vector3(-0.20, -0.20, 0.18),
+      new THREE.Vector3(-0.38, -0.46, 0.34),
+      new THREE.Vector3(-0.55, -0.58, 0.46),
     ],
     [
-      new THREE.Vector3(-0.08, -0.20, 0.23),
-      new THREE.Vector3(-0.02, -0.47, 0.48),
-      new THREE.Vector3(0.16, -0.58, 0.68),
-    ],
-    // rear
-    [
-      new THREE.Vector3(-0.32, -0.18, -0.20),
-      new THREE.Vector3(-0.60, -0.40, -0.36),
-      new THREE.Vector3(-0.78, -0.56, -0.55),
+      new THREE.Vector3(0.04, -0.22, -0.22),
+      new THREE.Vector3(0.06, -0.50, -0.44),
+      new THREE.Vector3(-0.05, -0.62, -0.62),
     ],
     [
-      new THREE.Vector3(-0.32, -0.18, 0.20),
-      new THREE.Vector3(-0.60, -0.40, 0.36),
-      new THREE.Vector3(-0.78, -0.56, 0.55),
+      new THREE.Vector3(0.04, -0.22, 0.22),
+      new THREE.Vector3(0.06, -0.50, 0.44),
+      new THREE.Vector3(-0.05, -0.62, 0.62),
+    ],
+    [
+      new THREE.Vector3(0.34, -0.19, -0.18),
+      new THREE.Vector3(0.58, -0.43, -0.34),
+      new THREE.Vector3(0.72, -0.58, -0.50),
+    ],
+    [
+      new THREE.Vector3(0.34, -0.19, 0.18),
+      new THREE.Vector3(0.58, -0.43, 0.34),
+      new THREE.Vector3(0.72, -0.58, 0.50),
     ],
   ];
+  legs.forEach((points) => root.add(limb(points, legMat)));
 
-  const legs = legSets.map((points) => makeLeg(points, legMat));
-  legs.forEach((leg) => root.add(leg));
-
-  // Smoking foreleg rig.
+  // Smoking foreleg + cigarette.
   const smokingArm = new THREE.Group();
-  smokingArm.position.set(0.24, -0.15, -0.20);
+  smokingArm.position.set(-0.20, -0.18, -0.18);
+  smokingArm.add(limb([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(-0.16, 0.14, -0.08),
+    new THREE.Vector3(-0.38, 0.15, -0.09),
+  ], legMat));
   root.add(smokingArm);
 
-  const upper = cylinderBetween(
-    new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0.24, 0.16, -0.08),
-    0.027,
-    legMat
-  );
-  const lower = cylinderBetween(
-    new THREE.Vector3(0.24, 0.16, -0.08),
-    new THREE.Vector3(0.48, 0.20, -0.04),
-    0.024,
-    legMat
-  );
-  smokingArm.add(upper, lower);
-
   const cigarette = new THREE.Group();
-  cigarette.position.set(0.73, 0.04, -0.24);
+  cigarette.position.set(-0.88, -0.01, -0.19);
   cigarette.rotation.z = Math.PI / 2;
   root.add(cigarette);
 
   const paper = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.032, 0.032, 0.44, 18),
-    new THREE.MeshStandardMaterial({ color: 0xf1e8d0, roughness: 0.72 })
+    new THREE.CylinderGeometry(0.028, 0.028, 0.42, 8),
+    flatMaterial(0xf2ead8)
   );
-  paper.castShadow = true;
   cigarette.add(paper);
 
   const filter = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.033, 0.033, 0.11, 18),
-    new THREE.MeshStandardMaterial({ color: 0xc98545, roughness: 0.65 })
+    new THREE.CylinderGeometry(0.029, 0.029, 0.10, 8),
+    flatMaterial(0xc57b38)
   );
-  filter.position.y = -0.165;
+  filter.position.y = 0.16;
   cigarette.add(filter);
 
-  const emberMat = new THREE.MeshStandardMaterial({
-    color: 0xff6f3c,
-    emissive: 0xff2500,
-    emissiveIntensity: 2.8,
+  const emberMat = flatMaterial(0xff6334, {
+    emissive: 0xff2f00,
+    emissiveIntensity: 2.0,
   });
-  const ember = new THREE.Mesh(new THREE.CylinderGeometry(0.033, 0.033, 0.03, 18), emberMat);
-  ember.position.y = 0.235;
+  const ember = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.029, 0.029, 0.035, 8),
+    emberMat
+  );
+  ember.position.y = -0.225;
   cigarette.add(ember);
 
-  // Smoke particle puffs.
-  const smoke = new THREE.Group();
-  root.add(smoke);
-  const smokeMat = new THREE.MeshBasicMaterial({
-    color: 0xd9d6d2,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-  });
+  // Puffy cartoon smoke.
   const puffs = [];
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 8; i++) {
     const puff = new THREE.Mesh(
-      new THREE.SphereGeometry(0.045 + i * 0.006, 14, 10),
-      smokeMat.clone()
+      new THREE.SphereGeometry(0.055 + i * 0.008, 8, 6),
+      new THREE.MeshBasicMaterial({
+        color: 0xd7d0c9,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      })
     );
-    puff.position.set(0.78 + i * 0.025, 0.18 + i * 0.09, -0.24);
-    smoke.add(puff);
+    puff.position.set(-0.95 - i * 0.035, 0.12 + i * 0.10, -0.19);
+    root.add(puff);
     puffs.push(puff);
   }
 
   root.traverse((obj) => {
-    if (obj.isMesh) obj.castShadow = true;
+    if (obj.isMesh && obj.material !== wingMat) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+    }
   });
 
   const state = {
-    smokingUntil: 0,
-    startedAt: 0,
+    smokeStart: -10,
+    smokeUntil: -10,
   };
 
   function triggerSmoke(duration = 1.8) {
     const now = performance.now() / 1000;
-    state.startedAt = now;
-    state.smokingUntil = now + duration;
+    state.smokeStart = now;
+    state.smokeUntil = now + duration;
   }
 
   function update(t) {
-    // Tiny living motions.
-    root.position.y = Math.sin(t * 2.2) * 0.012;
-    root.rotation.z = Math.sin(t * 1.1) * 0.015;
+    // idle bounce, deliberately tiny.
+    root.position.y = Math.sin(t * 2.0) * 0.010;
+    root.rotation.z = Math.sin(t * 1.2) * 0.012;
 
-    leftWingPivot.rotation.z = -0.18 + Math.sin(t * 5.2) * 0.018;
-    rightWingPivot.rotation.z = 0.18 - Math.sin(t * 5.2) * 0.018;
+    leftWing.rotation.z = -0.03 + Math.sin(t * 4.8) * 0.018;
+    rightWing.rotation.z = 0.03 - Math.sin(t * 4.8) * 0.018;
 
-    const smoking = t < state.smokingUntil;
+    const smoking = t < state.smokeUntil;
     if (smoking) {
-      const local = t - state.startedAt;
-      const inhale = Math.sin(Math.min(1, local / 0.75) * Math.PI * 0.5);
-      smokingArm.rotation.z = -0.45 * inhale;
-      smokingArm.rotation.y = -0.15 * inhale;
-      cigarette.position.x = THREE.MathUtils.lerp(0.73, 0.49, inhale);
-      cigarette.position.y = THREE.MathUtils.lerp(0.04, -0.02, inhale);
-      emberMat.emissiveIntensity = 2.8 + inhale * 5.5;
+      const local = t - state.smokeStart;
+      const bring = THREE.MathUtils.smoothstep(
+        THREE.MathUtils.clamp(local / 0.55, 0, 1),
+        0,
+        1
+      );
+
+      smokingArm.rotation.z = 0.62 * bring;
+      smokingArm.rotation.y = -0.15 * bring;
+      cigarette.position.x = THREE.MathUtils.lerp(-0.88, -0.70, bring);
+      cigarette.position.y = THREE.MathUtils.lerp(-0.01, -0.08, bring);
+      emberMat.emissiveIntensity = 2.0 + bring * 5.0;
 
       puffs.forEach((puff, i) => {
-        const start = 0.45 + i * 0.08;
-        const a = THREE.MathUtils.clamp((local - start) / 0.7, 0, 1);
-        puff.material.opacity = Math.sin(a * Math.PI) * 0.34;
-        puff.position.y = 0.18 + i * 0.09 + a * 0.30;
-        puff.position.x = 0.78 + i * 0.025 + Math.sin(t * 1.7 + i) * 0.045;
-        puff.scale.setScalar(1 + a * 1.2);
+        const start = 0.38 + i * 0.07;
+        const a = THREE.MathUtils.clamp((local - start) / 0.72, 0, 1);
+        puff.material.opacity = Math.sin(a * Math.PI) * 0.38;
+        puff.position.y = 0.12 + i * 0.10 + a * 0.28;
+        puff.position.x = -0.95 - i * 0.035 - a * 0.06;
+        puff.position.z = -0.19 + Math.sin(t * 1.7 + i) * 0.035;
+        puff.scale.setScalar(1 + a * 0.9);
       });
     } else {
-      smokingArm.rotation.z *= 0.86;
-      smokingArm.rotation.y *= 0.86;
-      cigarette.position.x = THREE.MathUtils.lerp(cigarette.position.x, 0.73, 0.12);
-      cigarette.position.y = THREE.MathUtils.lerp(cigarette.position.y, 0.04, 0.12);
+      smokingArm.rotation.z *= 0.84;
+      smokingArm.rotation.y *= 0.84;
+      cigarette.position.x = THREE.MathUtils.lerp(cigarette.position.x, -0.88, 0.12);
+      cigarette.position.y = THREE.MathUtils.lerp(cigarette.position.y, -0.01, 0.12);
       emberMat.emissiveIntensity = THREE.MathUtils.lerp(
         emberMat.emissiveIntensity,
-        2.8,
-        0.1
+        2.0,
+        0.12
       );
       puffs.forEach((puff, i) => {
-        puff.material.opacity *= 0.82;
-        puff.position.set(0.78 + i * 0.025, 0.18 + i * 0.09, -0.24);
+        puff.material.opacity *= 0.80;
+        puff.position.set(-0.95 - i * 0.035, 0.12 + i * 0.10, -0.19);
         puff.scale.setScalar(1);
       });
     }
