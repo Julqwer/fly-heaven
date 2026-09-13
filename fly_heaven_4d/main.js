@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { rotate4, project4To3, v4 } from './math4d.js';
-import { createFly4DPoints } from './fly4d.js';
+import { createFly4DParts } from './fly4d.js';
 
 const app = document.querySelector('#app');
 
@@ -22,7 +22,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.25;
+renderer.toneMappingExposure = 1.35;
 app.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -31,13 +31,13 @@ controls.target.set(0, 0, 0);
 controls.minDistance = 5;
 controls.maxDistance = 20;
 
-scene.add(new THREE.HemisphereLight(0xa99cff, 0x130d1e, 1.35));
+scene.add(new THREE.HemisphereLight(0xb9a9ff, 0x130d1e, 1.7));
 
-const keyLight = new THREE.PointLight(0xff87c8, 28, 25, 2);
+const keyLight = new THREE.PointLight(0xff87c8, 42, 25, 2);
 keyLight.position.set(4, 5, 7);
 scene.add(keyLight);
 
-const fillLight = new THREE.PointLight(0x71caff, 22, 25, 2);
+const fillLight = new THREE.PointLight(0x71caff, 34, 25, 2);
 fillLight.position.set(-6, -1, 3);
 scene.add(fillLight);
 
@@ -84,7 +84,7 @@ tesseractGeometry.setAttribute(
 const tesseractMaterial = new THREE.LineBasicMaterial({
   color: 0xb893ff,
   transparent: true,
-  opacity: 0.78,
+  opacity: 0.58,
 });
 
 const tesseractLines = new THREE.LineSegments(
@@ -93,7 +93,6 @@ const tesseractLines = new THREE.LineSegments(
 );
 scene.add(tesseractLines);
 
-// Ghost vertices.
 const tessPointGeometry = new THREE.BufferGeometry();
 const tessPointPositions = new Float32Array(tesseractVertices4.length * 3);
 tessPointGeometry.setAttribute(
@@ -105,28 +104,29 @@ const tessPoints = new THREE.Points(
   tessPointGeometry,
   new THREE.PointsMaterial({
     color: 0xf2d9ff,
-    size: 0.075,
+    size: 0.070,
     sizeAttenuation: true,
   })
 );
 scene.add(tessPoints);
 
 // ------------------------------------------------------------
-// 4D fly
+// Readable 4D fly
 // ------------------------------------------------------------
 
-const flyParts = createFly4DPoints();
+const flyParts = createFly4DParts();
 
 const flyPalette = {
-  body: 0x4e5148,
-  head: 0x34363a,
-  abdomen: 0x6d6845,
-  eye: 0xff4154,
-  wing: 0xd9e2ff,
-  leg: 0x25242d,
+  body: 0x41444b,
+  head: 0x30333a,
+  abdomen: 0x6b6844,
+  butt: 0x514f3d,
+  eye: 0xff314b,
+  wing: 0xdce6ff,
+  leg: 0x1b1b24,
 };
 
-const partViews = flyParts.map((part) => {
+const flyViews = flyParts.map((part) => {
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(part.points.length * 3);
 
@@ -135,42 +135,76 @@ const partViews = flyParts.map((part) => {
     new THREE.BufferAttribute(positions, 3)
   );
 
-  const material = new THREE.PointsMaterial({
+  if (part.type === 'surface') {
+    geometry.setIndex(part.indices);
+
+    const transparent = part.kind === 'wing';
+
+    const material = new THREE.MeshStandardMaterial({
+      color: flyPalette[part.kind],
+      roughness: 0.72,
+      metalness: 0.02,
+      side: THREE.DoubleSide,
+      transparent,
+      opacity: transparent ? 0.42 : 0.94,
+      depthWrite: !transparent,
+      flatShading: false,
+    });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.renderOrder = transparent ? 3 : 1;
+    scene.add(mesh);
+
+    // Dynamic wire overlay makes the 4D deformation legible.
+    const wireMaterial = new THREE.MeshBasicMaterial({
+      color:
+        part.kind === 'eye' ? 0xff8a99 :
+        part.kind === 'wing' ? 0xbdd0ff :
+        0xa8a1c3,
+      wireframe: true,
+      transparent: true,
+      opacity:
+        part.kind === 'wing' ? 0.30 :
+        part.kind === 'eye' ? 0.20 :
+        0.11,
+      depthWrite: false,
+    });
+
+    const wire = new THREE.Mesh(geometry, wireMaterial);
+    wire.renderOrder = 4;
+    scene.add(wire);
+
+    return {
+      part,
+      geometry,
+      positions,
+      objects: [mesh, wire],
+    };
+  }
+
+  const lineMaterial = new THREE.LineBasicMaterial({
     color: flyPalette[part.kind],
-    size:
-      part.kind === 'eye' ? 0.095 :
-      part.kind === 'leg' ? 0.055 :
-      part.kind === 'wing' ? 0.075 :
-      0.085,
-    transparent: part.kind === 'wing',
-    opacity: part.kind === 'wing' ? 0.52 : 0.95,
-    depthWrite: part.kind !== 'wing',
-    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.95,
   });
 
-  const points = new THREE.Points(geometry, material);
-  scene.add(points);
+  const line = new THREE.Line(geometry, lineMaterial);
+  scene.add(line);
 
   return {
     part,
     geometry,
     positions,
+    objects: [line],
   };
 });
-
-// A faint center marker so the viewer can tell that the fly itself,
-// not the tesseract, is changing under 4D rotations.
-const center = new THREE.Mesh(
-  new THREE.SphereGeometry(0.055, 12, 8),
-  new THREE.MeshBasicMaterial({ color: 0xffffff })
-);
-scene.add(center);
 
 // ------------------------------------------------------------
 // 4D animation controls
 // ------------------------------------------------------------
 
 let running = true;
+
 const enabled = {
   xw: true,
   yw: true,
@@ -192,12 +226,12 @@ let phase = 0;
 
 function angles4(t) {
   return {
-    xy: 0.17 * Math.sin(t * 0.19),
-    yz: 0.11 * Math.sin(t * 0.23),
+    xy: 0.10 * Math.sin(t * 0.17),
+    yz: 0.08 * Math.sin(t * 0.21),
 
-    xw: enabled.xw ? t * 0.37 : 0,
-    yw: enabled.yw ? t * 0.23 : 0,
-    zw: enabled.zw ? t * 0.17 : 0,
+    xw: enabled.xw ? t * 0.32 : 0,
+    yw: enabled.yw ? t * 0.20 : 0,
+    zw: enabled.zw ? t * 0.14 : 0,
   };
 }
 
@@ -217,6 +251,7 @@ function updateTesseract(angles) {
   });
 
   let k = 0;
+
   for (const [a, b] of tesseractEdges) {
     tessPositions[k++] = projected[a].x;
     tessPositions[k++] = projected[a].y;
@@ -239,20 +274,19 @@ function updateTesseract(angles) {
 }
 
 function updateFly(angles) {
-  // A little independent XW phase offset makes the fly genuinely
-  // occupy the same R^4 habitat without being rigidly glued to the cage.
+  // Independent offsets make the fly occupy R^4 instead of being a
+  // rigid decorative object pasted into the tesseract.
   const flyAngles = {
     ...angles,
-    xw: angles.xw + 0.31,
-    yw: angles.yw - 0.14,
+    xw: angles.xw + 0.29,
+    yw: angles.yw - 0.13,
+    zw: angles.zw + 0.09,
   };
 
-  for (const view of partViews) {
-    const points = view.part.points;
-
-    for (let i = 0; i < points.length; i++) {
-      const q = rotate4(points[i], flyAngles);
-      const p = project4To3(q, 5.5);
+  for (const view of flyViews) {
+    for (let i = 0; i < view.part.points.length; i++) {
+      const q = rotate4(view.part.points[i], flyAngles);
+      const p = project4To3(q, 6.0);
 
       view.positions[i * 3 + 0] = p.x;
       view.positions[i * 3 + 1] = p.y;
@@ -260,6 +294,10 @@ function updateFly(angles) {
     }
 
     view.geometry.attributes.position.needsUpdate = true;
+
+    if (view.part.type === 'surface') {
+      view.geometry.computeVertexNormals();
+    }
   }
 }
 
