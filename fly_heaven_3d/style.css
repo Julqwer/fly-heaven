@@ -5,61 +5,73 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
+  background: #d98270;
 }
 
 body {
-  background: #110f18;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+#app {
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
 }
 
 canvas {
   display: block;
+  width: 100vw !important;
+  height: 100vh !important;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .hud {
   position: fixed;
-  top: 24px;
-  left: 28px;
-  color: rgba(255,255,255,.94);
+  top: 18px;
+  left: 20px;
+  color: rgba(255,255,255,.88);
   pointer-events: none;
-  text-shadow: 0 2px 18px rgba(0,0,0,.35);
+  text-shadow: 0 2px 0 rgba(0,0,0,.3);
+  z-index: 10;
 }
 
 .eyebrow {
-  font-size: 11px;
-  letter-spacing: .2em;
+  font-size: 10px;
+  letter-spacing: .18em;
   opacity: .62;
 }
 
 .title {
-  margin-top: 7px;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 34px;
-  letter-spacing: -.02em;
+  margin-top: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: .03em;
 }
 
 .status {
-  margin-top: 10px;
-  font-size: 12px;
-  opacity: .75;
+  margin-top: 7px;
+  font-size: 10px;
+  opacity: .7;
 }
 
 .status span {
   display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-left: 5px;
-  border-radius: 999px;
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  border-radius: 50%;
   background: #88ff9b;
-  box-shadow: 0 0 13px rgba(136,255,155,.9);
 }
 
 .hint {
   position: fixed;
-  right: 24px;
-  bottom: 20px;
-  color: rgba(255,255,255,.42);
-  font-size: 11px;
-  letter-spacing: .08em;
+  right: 16px;
+  bottom: 14px;
+  color: rgba(255,255,255,.40);
+  font-size: 9px;
+  letter-spacing: .07em;
   pointer-events: none;
+  z-index: 10;
 }
