@@ -73,6 +73,32 @@ export function createFly() {
   abdomen.castShadow = true;
   root.add(abdomen);
 
+  // Cute rounded butt integrated into the rear of the abdomen.
+  // Rear is +X in this model. Two overlapping low-poly lobes give
+  // a tiny cartoon "cheek" silhouette without looking disconnected.
+  const buttMat = flatMaterial(0x38392f);
+  const buttGrooveMat = flatMaterial(0x262823);
+
+  for (const z of [-0.105, 0.105]) {
+    const cheek = new THREE.Mesh(
+      new THREE.SphereGeometry(0.19, 10, 7),
+      buttMat
+    );
+    cheek.position.set(1.02, -0.055, z);
+    cheek.scale.set(0.86, 0.92, 0.82);
+    cheek.castShadow = true;
+    root.add(cheek);
+  }
+
+  const buttGroove = segment(
+    new THREE.Vector3(1.165, -0.16, 0),
+    new THREE.Vector3(1.165, 0.055, 0),
+    0.012,
+    buttGrooveMat,
+    6
+  );
+  root.add(buttGroove);
+
   // Wide olive bands like the old fly.
   for (const x of [0.38, 0.62, 0.83]) {
     const band = new THREE.Mesh(
@@ -124,24 +150,24 @@ export function createFly() {
   ));
 
   // Big rounded translucent wings.
-  // Anchor them directly into the thorax so they read as attached,
-  // while keeping the chunky cartoon silhouette of the old 2D fly.
+  // Both use the same local orientation and are only mirrored by their
+  // attachment point, so neither can end up visually "inside-out".
   function wing(side) {
     const pivot = new THREE.Group();
-    pivot.position.set(0.02, 0.17, side * 0.10);
+    pivot.position.set(0.00, 0.20, side * 0.12);
 
     const mesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.48, 12, 8),
       wingMat
     );
 
-    // Flatten into a soft oval and overlap the thorax at the base.
-    mesh.scale.set(1.18, 0.34, 0.16);
-    mesh.position.set(0.16, 0.10, side * 0.03);
+    // Soft flattened oval, sunk slightly into the thorax at the base.
+    mesh.scale.set(1.16, 0.30, 0.13);
+    mesh.position.set(0.23, 0.10, 0);
 
-    // Slight V-shape so both wings remain visible from the front.
-    mesh.rotation.z = side * 0.28;
-    mesh.rotation.y = side * 0.12;
+    // Same sweep-back angle for both wings; only the yaw is mirrored.
+    mesh.rotation.z = 0.14;
+    mesh.rotation.y = side * 0.18;
 
     mesh.castShadow = false;
     pivot.add(mesh);
@@ -272,8 +298,9 @@ export function createFly() {
     root.position.y = state.baseY + Math.sin(t * 2.0) * 0.010;
     root.rotation.z = Math.sin(t * 1.2) * 0.012;
 
-    leftWing.rotation.z = -0.03 + Math.sin(t * 4.8) * 0.018;
-    rightWing.rotation.z = 0.03 - Math.sin(t * 4.8) * 0.018;
+    const wingFlap = Math.sin(t * 4.8) * 0.025;
+    leftWing.rotation.x = -0.08 - wingFlap;
+    rightWing.rotation.x = 0.08 + wingFlap;
 
     const smoking = t < state.smokeUntil;
     if (smoking) {
