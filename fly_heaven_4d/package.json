@@ -1,0 +1,15 @@
+{
+  "name": "fly-heaven-4d",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FLY HEAVEN 4D visual experiment",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.186.0",
+    "vite": "^8.3.0"
+  }
+}
