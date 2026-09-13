@@ -73,3 +73,43 @@ canvas {
   color: rgba(255,255,255,.72);
   font-weight: 600;
 }
+
+
+.w-legend {
+  position: fixed;
+  left: 24px;
+  bottom: 22px;
+  width: 285px;
+  color: rgba(255,255,255,.62);
+  pointer-events: none;
+}
+
+.w-title {
+  margin-bottom: 7px;
+  font-size: 9px;
+  letter-spacing: .16em;
+  opacity: .72;
+}
+
+.w-bar {
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #35d9ff 0%,
+    #d9ccff 50%,
+    #ff4fa7 100%
+  );
+  box-shadow:
+    0 0 14px rgba(117,189,255,.20),
+    0 0 18px rgba(255,79,167,.16);
+}
+
+.w-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 8px;
+  opacity: .58;
+}
