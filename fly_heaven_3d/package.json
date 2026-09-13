@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bridge": "node bridge.mjs"
   },
   "dependencies": {
     "express": "^5.2.1",
